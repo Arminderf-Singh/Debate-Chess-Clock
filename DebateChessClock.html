@@ -1,0 +1,2699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DebateClock</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg:            oklch(0.11 0.008 75);
+            --surface:       oklch(0.16 0.009 75);
+            --surface-hi:    oklch(0.21 0.009 75);
+            --border:        oklch(0.27 0.008 75);
+            --border-sub:    oklch(0.21 0.008 75);
+            --text:          oklch(0.93 0.007 75);
+            --text-2:        oklch(0.60 0.007 75);
+            --text-3:        oklch(0.38 0.007 75);
+
+            --amber:         oklch(0.78 0.14 65);
+            --amber-dim:     oklch(0.20 0.04 65);
+            --amber-border:  oklch(0.34 0.08 65);
+
+            --warn:          oklch(0.72 0.17 48);
+            --warn-dim:      oklch(0.19 0.05 48);
+            --warn-border:   oklch(0.33 0.10 48);
+
+            --crit:          oklch(0.62 0.20 22);
+            --crit-dim:      oklch(0.19 0.06 22);
+            --crit-border:   oklch(0.36 0.12 22);
+
+            --aff:           oklch(0.72 0.12 235);
+            --aff-dim:       oklch(0.17 0.04 235);
+            --neg:           oklch(0.70 0.14 8);
+            --neg-dim:       oklch(0.17 0.05 8);
+            --c3:            oklch(0.74 0.12 165);
+            --c3-dim:        oklch(0.17 0.04 165);
+            --c4:            oklch(0.74 0.11 295);
+            --c4-dim:        oklch(0.17 0.04 295);
+
+            --ease:          cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-q:        cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Shell ── */
+        .shell {
+            max-width: 1320px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 0 1.5rem;
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+        }
+
+        /* ── Topbar ── */
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.125rem 0;
+            border-bottom: 1px solid var(--border-sub);
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .wordmark {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 0.05em;
+            color: var(--text);
+        }
+
+        .wm-icon {
+            width: 30px;
+            height: 30px;
+            background: var(--amber);
+            border-radius: 7px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: oklch(0.11 0.008 75);
+            font-size: 0.875rem;
+        }
+
+        .pills {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            flex-wrap: wrap;
+        }
+
+        .pill {
+            display: flex;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.3rem 0.7rem;
+            border-radius: 99px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            font-size: 0.6875rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-2);
+            letter-spacing: 0.05em;
+        }
+
+        .pill-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--text-3);
+            flex-shrink: 0;
+        }
+
+        .pill-dot.live {
+            background: var(--amber);
+            box-shadow: 0 0 5px var(--amber);
+        }
+
+        /* ── Main grid ── */
+        .main {
+            display: grid;
+            grid-template-columns: 1fr 272px;
+            gap: 1.5rem;
+            padding: 1.5rem 0 2rem;
+            flex: 1;
+            align-items: start;
+        }
+
+        /* ── Left column ── */
+        .left-col {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        /* ── Speaker grid ── */
+        .speakers-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(256px, 1fr));
+        }
+
+        /* ── Clock card ── */
+        .clock-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+            cursor: pointer;
+            transition: border-color 0.15s var(--ease-q), background 0.15s var(--ease-q), box-shadow 0.22s var(--ease);
+            position: relative;
+            user-select: none;
+        }
+
+        .clock-card:hover:not(.card-off) {
+            border-color: oklch(0.34 0.008 75);
+        }
+
+        .clock-card.card-live {
+            border-color: var(--amber-border);
+            background: oklch(0.165 0.011 75);
+            box-shadow: 0 0 0 1px var(--amber-dim), 0 6px 28px oklch(0 0 0 / 0.35);
+        }
+
+        .clock-card.card-warn  { border-color: var(--warn-border); }
+        .clock-card.card-crit  { border-color: var(--crit-border); }
+
+        .clock-card.card-off {
+            opacity: 0.38;
+            cursor: default;
+            pointer-events: none;
+        }
+
+        /* Card header */
+        .card-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .sp-ident {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            min-width: 0;
+        }
+
+        .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 9px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.8125rem;
+            flex-shrink: 0;
+        }
+
+        .sp-meta { min-width: 0; }
+
+        .sp-name-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            margin-bottom: 0.125rem;
+        }
+
+        .sp-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .edit-btn {
+            color: var(--text-3);
+            cursor: pointer;
+            font-size: 0.6875rem;
+            background: none;
+            border: none;
+            padding: 2px;
+            border-radius: 3px;
+            flex-shrink: 0;
+            transition: color 0.15s;
+        }
+
+        .edit-btn:hover { color: var(--text-2); }
+
+        .team-tag {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            font-size: 0.75rem;
+            color: var(--text-2);
+        }
+
+        .team-pip {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* Live badge */
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.25rem 0.5625rem;
+            border-radius: 99px;
+            font-size: 0.625rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            letter-spacing: 0.07em;
+            border: 1px solid var(--border);
+            color: var(--text-3);
+            background: transparent;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .live-badge.badge-on {
+            border-color: var(--amber-border);
+            color: var(--amber);
+            background: var(--amber-dim);
+        }
+
+        .badge-pip {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+            flex-shrink: 0;
+        }
+
+        .badge-on .badge-pip {
+            animation: blink 1.1s ease infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        /* Timer */
+        .timer-area {
+            text-align: center;
+            padding: 0.75rem 0 0.5rem;
+        }
+
+        .timer-digits {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 3.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+            color: var(--text);
+            transition: color 0.25s var(--ease-q);
+        }
+
+        .timer-digits.t-live { color: var(--amber); }
+        .timer-digits.t-warn { color: var(--warn); }
+        .timer-digits.t-crit { color: var(--crit); }
+
+        .timer-sub {
+            margin-top: 0.375rem;
+            font-size: 0.75rem;
+            color: var(--text-2);
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.02em;
+        }
+
+        /* Progress track */
+        .time-track {
+            height: 2px;
+            background: var(--border-sub);
+            border-radius: 1px;
+            overflow: hidden;
+            margin: 0.875rem 0 0;
+        }
+
+        .time-fill {
+            height: 100%;
+            border-radius: 1px;
+            transition: width 1s linear, background-color 0.3s var(--ease-q);
+        }
+
+        /* Interruption tags on card */
+        .int-tags {
+            display: flex;
+            gap: 0.375rem;
+            min-height: 18px;
+            margin-bottom: 0.625rem;
+        }
+
+        .int-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            padding: 0.125rem 0.4375rem;
+            border-radius: 4px;
+            font-size: 0.625rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            letter-spacing: 0.04em;
+        }
+
+        .tag-out { background: oklch(0.20 0.06 48 / 0.7); color: var(--warn); }
+        .tag-in  { background: oklch(0.19 0.06 22 / 0.7); color: var(--crit); }
+
+        /* Card actions */
+        .card-actions {
+            display: flex;
+            gap: 0.4375rem;
+            margin-top: 0.875rem;
+            border-top: 1px solid var(--border-sub);
+            padding-top: 0.75rem;
+        }
+
+        .ca-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            padding: 0.4375rem;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-2);
+            font-size: 0.75rem;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.14s, color 0.14s, background 0.14s;
+        }
+
+        .ca-btn:hover {
+            border-color: oklch(0.34 0.008 75);
+            color: var(--text);
+            background: var(--surface-hi);
+        }
+
+        .ca-btn.ca-live {
+            border-color: var(--amber-border);
+            color: var(--amber);
+            background: var(--amber-dim);
+        }
+
+        .ca-btn.ca-live:hover { background: oklch(0.24 0.07 65); }
+
+        /* ── Analytics strip ── */
+        .analytics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--border-sub);
+            border: 1px solid var(--border-sub);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .a-cell {
+            background: var(--surface);
+            padding: 0.875rem 1rem;
+            text-align: center;
+        }
+
+        .a-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+        }
+
+        .a-lbl {
+            font-size: 0.6875rem;
+            color: var(--text-2);
+            letter-spacing: 0.02em;
+        }
+
+        /* ── Interruption table ── */
+        .int-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.125rem 1.25rem;
+        }
+
+        .sec-label {
+            font-size: 0.6875rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            color: var(--text-2);
+            text-transform: uppercase;
+            margin-bottom: 0.875rem;
+        }
+
+        .int-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .int-table th {
+            font-size: 0.625rem;
+            font-weight: 600;
+            color: var(--text-3);
+            text-align: left;
+            padding: 0 0 0.5rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-sub);
+        }
+
+        .int-table th:not(:first-child) { text-align: center; }
+
+        .int-table td {
+            padding: 0.5625rem 0;
+            font-size: 0.875rem;
+            border-bottom: 1px solid var(--border-sub);
+            vertical-align: middle;
+        }
+
+        .int-table tr:last-child td { border-bottom: none; }
+        .int-table td:not(:first-child) {
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+        }
+
+        .td-name {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .td-av {
+            width: 22px;
+            height: 22px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.5625rem;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        /* ── Control panel ── */
+        .ctrl-panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.25rem;
+            position: sticky;
+            top: 1.5rem;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .ctrl-sec {
+            padding-bottom: 1.125rem;
+            margin-bottom: 1.125rem;
+            border-bottom: 1px solid var(--border-sub);
+        }
+
+        .ctrl-sec:last-child {
+            padding-bottom: 0;
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+
+        .ctrl-lbl {
+            font-size: 0.625rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+            color: var(--text-2);
+            margin-bottom: 0.625rem;
+        }
+
+        /* Segmented */
+        .seg {
+            display: flex;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 3px;
+            gap: 2px;
+        }
+
+        .seg-opt {
+            flex: 1;
+            text-align: center;
+            padding: 0.4375rem 0.25rem;
+            border-radius: 5px;
+            font-size: 0.8125rem;
+            font-weight: 500;
+            cursor: pointer;
+            color: var(--text-2);
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .seg-opt.seg-on {
+            background: var(--surface-hi);
+            color: var(--text);
+            box-shadow: 0 1px 3px oklch(0 0 0 / 0.3);
+        }
+
+        /* Team grid */
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.4rem;
+        }
+
+        .team-opt {
+            text-align: center;
+            padding: 0.4375rem 0.25rem;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            font-size: 0.8125rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            color: var(--text-2);
+            transition: border-color 0.15s, color 0.15s, background 0.15s;
+        }
+
+        .team-opt:hover { border-color: oklch(0.34 0.008 75); color: var(--text); }
+
+        .team-opt.t-on {
+            border-color: var(--amber-border);
+            color: var(--amber);
+            background: var(--amber-dim);
+        }
+
+        /* Toggle row */
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .toggle-lbl { font-size: 0.875rem; color: var(--text-2); }
+
+        .sw {
+            position: relative;
+            width: 40px;
+            height: 22px;
+            flex-shrink: 0;
+        }
+
+        .sw input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+        .sw-track {
+            position: absolute;
+            inset: 0;
+            background: var(--border);
+            border-radius: 99px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .sw-track::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 16px;
+            height: 16px;
+            background: oklch(0.55 0.007 75);
+            border-radius: 50%;
+            transition: transform 0.2s var(--ease), background 0.2s;
+        }
+
+        .sw input:checked + .sw-track { background: var(--amber); }
+        .sw input:checked + .sw-track::after {
+            transform: translateX(18px);
+            background: oklch(0.11 0.008 75);
+        }
+
+        .tl-input { margin-top: 0.75rem; }
+
+        /* Field */
+        .field {
+            width: 100%;
+            padding: 0.5625rem 0.75rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9375rem;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        .field:focus {
+            border-color: var(--amber-border);
+            box-shadow: 0 0 0 3px var(--amber-dim);
+        }
+
+        .field-lbl {
+            display: block;
+            font-size: 0.75rem;
+            color: var(--text-2);
+            margin-bottom: 0.3rem;
+        }
+
+        /* Inline btns (manual controls) */
+        .inline-row {
+            display: flex;
+            gap: 0.4375rem;
+        }
+
+        .inline-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            padding: 0.4375rem 0.5rem;
+            border-radius: 7px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text-2);
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: border-color 0.14s, color 0.14s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .inline-btn:hover { border-color: oklch(0.34 0.008 75); color: var(--text); }
+
+        .mode-hint {
+            font-size: 0.75rem;
+            color: var(--text-3);
+            margin-top: 0.5rem;
+            line-height: 1.45;
+        }
+
+        /* Action stack */
+        .action-stack { display: flex; flex-direction: column; gap: 0.5rem; }
+
+        .act-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.4375rem;
+            padding: 0.8125rem;
+            border-radius: 9px;
+            font-size: 0.9375rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid transparent;
+            font-family: 'Inter', sans-serif;
+            transition: box-shadow 0.18s var(--ease), opacity 0.15s, transform 0.08s;
+        }
+
+        .act-btn:active { transform: scale(0.98); }
+
+        .act-btn:disabled {
+            opacity: 0.45;
+            cursor: default;
+            transform: none;
+        }
+
+        .act-primary {
+            background: var(--amber);
+            color: oklch(0.11 0.008 75);
+            border-color: var(--amber);
+        }
+
+        .act-primary:not(:disabled):hover {
+            box-shadow: 0 4px 18px oklch(0.78 0.14 65 / 0.38);
+        }
+
+        .act-ghost {
+            background: transparent;
+            border-color: var(--border);
+            color: var(--text-2);
+        }
+
+        .act-ghost:hover { border-color: oklch(0.34 0.008 75); color: var(--text); }
+
+        .act-danger {
+            background: var(--crit-dim);
+            border-color: var(--crit-border);
+            color: var(--crit);
+        }
+
+        .act-danger:hover { background: oklch(0.21 0.08 22); }
+
+        /* ── Timeout overlay ── */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: oklch(0 0 0 / 0.68);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s var(--ease-q);
+        }
+
+        .overlay.ov-show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .ov-card {
+            background: var(--surface);
+            border: 1px solid var(--crit-border);
+            border-radius: 16px;
+            padding: 2rem 1.75rem;
+            text-align: center;
+            max-width: 360px;
+            width: 92%;
+            box-shadow: 0 0 40px oklch(0.62 0.20 22 / 0.28), 0 20px 60px oklch(0 0 0 / 0.45);
+        }
+
+        .ov-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            background: var(--crit-dim);
+            border: 1px solid var(--crit-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: var(--crit);
+            margin: 0 auto 1.125rem;
+        }
+
+        .ov-title {
+            font-size: 1.1875rem;
+            font-weight: 700;
+            margin-bottom: 0.4375rem;
+        }
+
+        .ov-body {
+            font-size: 0.9rem;
+            color: var(--text-2);
+            margin-bottom: 1.375rem;
+        }
+
+        /* ── Name modal ── */
+        .modal-bg {
+            position: fixed;
+            inset: 0;
+            background: oklch(0 0 0 / 0.62);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 300;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s var(--ease-q);
+        }
+
+        .modal-bg.m-show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.625rem;
+            width: min(420px, 92vw);
+            box-shadow: 0 20px 60px oklch(0 0 0 / 0.42);
+        }
+
+        .modal-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1.125rem;
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 1.125rem;
+        }
+
+        .m-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 7px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text-2);
+            font-family: 'Inter', sans-serif;
+            transition: border-color 0.14s, color 0.14s;
+        }
+
+        .m-btn:hover { color: var(--text); border-color: oklch(0.34 0.008 75); }
+
+        .m-btn.m-save {
+            background: var(--amber);
+            color: oklch(0.11 0.008 75);
+            border-color: var(--amber);
+            font-weight: 600;
+        }
+
+        .m-btn.m-save:hover { box-shadow: 0 3px 12px oklch(0.78 0.14 65 / 0.3); }
+
+        /* ── Interruption slide panel ── */
+        .slide-panel {
+            position: fixed;
+            bottom: 1.5rem;
+            left: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            padding: 1.125rem;
+            z-index: 150;
+            width: min(300px, calc(100vw - 3rem));
+            box-shadow: 0 8px 32px oklch(0 0 0 / 0.38);
+            transform: translateY(calc(100% + 2rem));
+            transition: transform 0.28s var(--ease);
+        }
+
+        .slide-panel.sp-show { transform: translateY(0); }
+
+        .sp-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+
+        .sp-title { font-size: 0.875rem; font-weight: 600; }
+
+        .sp-close {
+            background: none;
+            border: none;
+            color: var(--text-3);
+            cursor: pointer;
+            font-size: 0.8125rem;
+            padding: 2px;
+            border-radius: 4px;
+            transition: color 0.14s;
+        }
+
+        .sp-close:hover { color: var(--text-2); }
+
+        .sp-sub { font-size: 0.8125rem; color: var(--text-2); margin-bottom: 0.875rem; }
+
+        .int-opts { display: flex; flex-direction: column; gap: 0.4375rem; }
+
+        .int-opt {
+            display: flex;
+            align-items: center;
+            gap: 0.625rem;
+            padding: 0.5625rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            cursor: pointer;
+            transition: border-color 0.14s, background 0.14s;
+        }
+
+        .int-opt:hover { border-color: oklch(0.34 0.008 75); background: var(--surface-hi); }
+
+        .int-opt-name { font-size: 0.875rem; font-weight: 500; }
+        .int-opt-team { font-size: 0.6875rem; color: var(--text-2); }
+
+        /* ── Auto mode ── */
+        .auto-status-row {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .voice-map-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4375rem 0.625rem;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            margin-bottom: 0.375rem;
+        }
+
+        .vm-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: var(--amber);
+            min-width: 52px;
+        }
+
+        .vm-name {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .vm-swap {
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text-3);
+            font-size: 0.625rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            padding: 0.1875rem 0.4375rem;
+            cursor: pointer;
+            transition: border-color 0.14s, color 0.14s;
+            flex-shrink: 0;
+        }
+
+        .vm-swap:hover { border-color: var(--amber-border); color: var(--amber); }
+
+        /* ── File drop zone ── */
+        .file-drop {
+            border: 1.5px dashed var(--border);
+            border-radius: 10px;
+            padding: 1.25rem 1rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            margin-top: 0.625rem;
+        }
+
+        .file-drop:hover, .file-drop.drag-over {
+            border-color: var(--amber-border);
+            background: var(--amber-dim);
+        }
+
+        .file-drop i {
+            font-size: 1.375rem;
+            color: var(--text-3);
+            margin-bottom: 0.375rem;
+            display: block;
+        }
+
+        .file-drop .drop-title {
+            font-size: 0.8125rem;
+            font-weight: 500;
+            color: var(--text-2);
+        }
+
+        .file-drop .drop-sub {
+            font-size: 0.6875rem;
+            color: var(--text-3);
+            margin-top: 0.2rem;
+        }
+
+        .file-chosen {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.4375rem 0.625rem;
+            background: var(--amber-dim);
+            border: 1px solid var(--amber-border);
+            border-radius: 7px;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--amber);
+        }
+
+        .file-chosen i { flex-shrink: 0; }
+
+        .file-chosen .fc-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+
+        .fc-clear {
+            background: none;
+            border: none;
+            color: var(--amber);
+            cursor: pointer;
+            opacity: 0.7;
+            flex-shrink: 0;
+            padding: 1px;
+            font-size: 0.75rem;
+        }
+
+        .fc-clear:hover { opacity: 1; }
+
+        /* ── Progress overlay ── */
+        .prog-overlay {
+            position: fixed;
+            inset: 0;
+            background: oklch(0 0 0 / 0.72);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 400;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s var(--ease-q);
+        }
+
+        .prog-overlay.prog-show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .prog-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem 1.75rem;
+            width: min(380px, 92vw);
+            box-shadow: 0 20px 60px oklch(0 0 0 / 0.45);
+        }
+
+        .prog-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 1.375rem;
+        }
+
+        .prog-steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .prog-step {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 0.875rem;
+            color: var(--text-3);
+        }
+
+        .prog-step.step-done { color: var(--text-2); }
+        .prog-step.step-active { color: var(--text); }
+
+        .step-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6875rem;
+            flex-shrink: 0;
+            color: var(--text-3);
+        }
+
+        .prog-step.step-done .step-icon {
+            background: oklch(0.20 0.06 165);
+            border-color: oklch(0.35 0.10 165);
+            color: var(--c3);
+        }
+
+        .prog-step.step-active .step-icon {
+            background: var(--amber-dim);
+            border-color: var(--amber-border);
+            color: var(--amber);
+            animation: spin 1.2s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+
+        .prog-detail {
+            font-size: 0.75rem;
+            color: var(--text-2);
+            margin-top: 1.25rem;
+            font-family: 'JetBrains Mono', monospace;
+            min-height: 1.1em;
+        }
+
+        .prog-bar-wrap {
+            height: 3px;
+            background: var(--border-sub);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 1.25rem;
+        }
+
+        .prog-bar-fill {
+            height: 100%;
+            background: var(--amber);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.6s var(--ease);
+        }
+
+        /* ── Speaker mapping modal ── */
+        .map-modal {
+            position: fixed;
+            inset: 0;
+            background: oklch(0 0 0 / 0.65);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 500;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s var(--ease-q);
+        }
+
+        .map-modal.map-show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .map-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem;
+            width: min(540px, 95vw);
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px oklch(0 0 0 / 0.45);
+        }
+
+        .map-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+
+        .map-sub {
+            font-size: 0.8125rem;
+            color: var(--text-2);
+            margin-bottom: 1.375rem;
+        }
+
+        .map-speaker {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .map-sp-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 0.625rem;
+        }
+
+        .map-sp-id {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.875rem;
+            color: var(--amber);
+        }
+
+        .map-select {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            color: var(--text);
+            font-size: 0.8125rem;
+            font-family: 'Inter', sans-serif;
+            padding: 0.3125rem 0.5rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+
+        .map-select:focus { border-color: var(--amber-border); }
+
+        .map-quotes {
+            font-size: 0.75rem;
+            color: var(--text-2);
+            font-style: italic;
+            line-height: 1.45;
+        }
+
+        .map-quote {
+            display: flex;
+            gap: 0.375rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .map-quote::before {
+            content: '"';
+            color: var(--text-3);
+            flex-shrink: 0;
+        }
+
+        .map-stats-row {
+            display: flex;
+            gap: 1.5rem;
+            margin-top: 0.625rem;
+            font-size: 0.6875rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-3);
+        }
+
+        .map-stat { display: flex; align-items: center; gap: 0.25rem; }
+        .map-stat-val { color: var(--text-2); font-weight: 600; }
+
+        .map-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+            margin-top: 1.25rem;
+            padding-top: 1.125rem;
+            border-top: 1px solid var(--border-sub);
+        }
+
+        /* ── Utterance timeline ── */
+        .timeline-section {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.125rem 1.25rem;
+        }
+
+        .timeline-wrap {
+            position: relative;
+            overflow-x: auto;
+            padding-bottom: 0.25rem;
+        }
+
+        .timeline-tracks {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            min-width: 480px;
+        }
+
+        .tl-track {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .tl-name {
+            width: 80px;
+            flex-shrink: 0;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-2);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            text-align: right;
+        }
+
+        .tl-bar-row {
+            flex: 1;
+            position: relative;
+            height: 22px;
+            background: var(--bg);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .tl-segment {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            border-radius: 2px;
+            opacity: 0.85;
+        }
+
+        .tl-segment:hover { opacity: 1; }
+
+        .tl-axis {
+            display: flex;
+            justify-content: space-between;
+            margin-left: 87px;
+            margin-top: 0.375rem;
+            font-size: 0.625rem;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-3);
+        }
+
+        /* ── Footer ── */
+        .app-footer {
+            border-top: 1px solid var(--border-sub);
+            padding: 0.875rem 0;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.6875rem;
+            color: var(--text-3);
+            letter-spacing: 0.03em;
+        }
+
+        /* ── Responsive ── */
+        @media (max-width: 900px) {
+            .main { grid-template-columns: 1fr; }
+            .ctrl-panel { position: static; }
+        }
+
+        @media (max-width: 580px) {
+            .shell { padding: 0 1rem; }
+            .timer-digits { font-size: 2.75rem; }
+            .speakers-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="shell">
+
+    <!-- Topbar -->
+    <header class="topbar">
+        <div class="wordmark">
+            <div class="wm-icon"><i class="fas fa-stopwatch"></i></div>
+            DEBATECLOCK
+        </div>
+        <div class="pills">
+            <div class="pill">
+                <div class="pill-dot" id="pill-dot"></div>
+                <span id="pill-status">READY</span>
+            </div>
+            <div class="pill">
+                <div class="pill-dot"></div>
+                <span id="pill-config">1v1</span>
+            </div>
+            <div class="pill">
+                <div class="pill-dot"></div>
+                <span id="pill-mode">MANUAL</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main -->
+    <main class="main">
+
+        <!-- Left: clocks + stats -->
+        <div class="left-col">
+            <div class="speakers-grid" id="speakers-grid"></div>
+
+            <div class="analytics">
+                <div class="a-cell">
+                    <div class="a-val" id="stat-total">00:00</div>
+                    <div class="a-lbl">Debate time</div>
+                </div>
+                <div class="a-cell">
+                    <div class="a-val" id="stat-lead">+00:00</div>
+                    <div class="a-lbl">Aff. lead</div>
+                </div>
+                <div class="a-cell">
+                    <div class="a-val" id="stat-overlaps">0</div>
+                    <div class="a-lbl">Overlaps</div>
+                </div>
+            </div>
+
+            <div class="int-section">
+                <div class="sec-label">Interruption log</div>
+                <table class="int-table">
+                    <thead>
+                        <tr>
+                            <th>Speaker</th>
+                            <th>Made</th>
+                            <th>Received</th>
+                        </tr>
+                    </thead>
+                    <tbody id="int-tbody"></tbody>
+                </table>
+            </div>
+
+            <div class="timeline-section" id="timeline-section" style="display:none;">
+                <div class="sec-label">Speaking timeline</div>
+                <div class="timeline-wrap">
+                    <div class="timeline-tracks" id="timeline-tracks"></div>
+                    <div class="tl-axis" id="tl-axis"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: control panel -->
+        <aside class="ctrl-panel">
+
+            <div class="ctrl-sec">
+                <div class="ctrl-lbl">Team setup</div>
+                <div class="team-grid">
+                    <div class="team-opt t-on" data-cfg="1v1">1v1</div>
+                    <div class="team-opt" data-cfg="2v2">2v2</div>
+                    <div class="team-opt" data-cfg="3v3">3v3</div>
+                    <div class="team-opt" data-cfg="1v3">1v3</div>
+                </div>
+            </div>
+
+            <div class="ctrl-sec">
+                <div class="ctrl-lbl">Mode</div>
+                <div class="seg">
+                    <div class="seg-opt" id="seg-auto">Auto</div>
+                    <div class="seg-opt seg-on" id="seg-manual">Manual</div>
+                    <div class="seg-opt" id="seg-rec">Recording</div>
+                </div>
+                <div id="auto-pane" style="display:none;">
+                    <div style="margin-top:0.625rem;">
+                        <div class="auto-status-row" id="auto-status-row">
+                            <div class="pill-dot" id="auto-status-dot"></div>
+                            <span id="auto-status" style="font-size:0.75rem;font-family:'JetBrains Mono',monospace;letter-spacing:0.04em;color:var(--text-2);">READY</span>
+                        </div>
+                        <div class="mode-hint" style="margin-top:0.375rem;">
+                            Streams mic audio to AssemblyAI in real time. Switches speaker clocks automatically as voices change. Uses the same API key as Recording mode.
+                        </div>
+                    </div>
+                    <div style="margin-top:0.875rem;">
+                        <div class="ctrl-lbl" style="margin-bottom:0.5rem;">Voice assignments</div>
+                        <div id="voice-map">
+                            <div class="mode-hint">Voices will be mapped automatically as speakers are detected.</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="manual-pane">
+                    <div class="inline-row" style="margin-top:0.625rem;">
+                        <button class="inline-btn" id="btn-pause-all">
+                            <i class="fas fa-pause"></i> Pause all
+                        </button>
+                        <button class="inline-btn" id="btn-mark-int">
+                            <i class="fas fa-bolt"></i> Interruption
+                        </button>
+                    </div>
+                    <div class="mode-hint">Tap a card to start or stop that speaker. Starting one stops all others.</div>
+                </div>
+                <div id="rec-pane" style="display:none;">
+                    <div style="margin-top:0.625rem;">
+                        <label class="field-lbl" for="aai-key">
+                            AssemblyAI API key
+                            <a href="https://www.assemblyai.com/" target="_blank" rel="noopener" style="color:var(--text-3);font-size:0.625rem;margin-left:0.25rem;">get free key ↗</a>
+                        </label>
+                        <input type="password" class="field" id="aai-key" placeholder="••••••••••••••••" autocomplete="off">
+                        <div class="mode-hint" style="margin-top:0.3rem;">Stored locally. Sent only to AssemblyAI — never to any other server.</div>
+                    </div>
+                    <div style="margin-top:0.75rem;">
+                        <label class="field-lbl">Audio or video file</label>
+                        <div class="file-drop" id="file-drop">
+                            <i class="fas fa-cloud-arrow-up"></i>
+                            <div class="drop-title">Drop file here</div>
+                            <div class="drop-sub">or click to browse</div>
+                            <input type="file" id="file-input" accept="audio/*,video/*" style="display:none;">
+                        </div>
+                        <div id="file-chosen-row" style="display:none;">
+                            <div class="file-chosen" id="file-chosen-label">
+                                <i class="fas fa-file-audio"></i>
+                                <span class="fc-name" id="fc-name"></span>
+                                <button class="fc-clear" id="btn-clear-file"><i class="fas fa-times"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="margin-top:0.75rem;">
+                        <label class="field-lbl" for="sp-expected">Expected speakers</label>
+                        <input type="number" class="field" id="sp-expected" value="2" min="1" max="10">
+                        <div class="mode-hint" style="margin-top:0.3rem;">Helps diarization accuracy. Match your team config.</div>
+                    </div>
+                    <button class="act-btn act-primary" id="btn-analyze" style="margin-top:0.875rem;width:100%;" disabled>
+                        <i class="fas fa-microchip"></i> Analyze recording
+                    </button>
+                </div>
+            </div>
+
+            <div class="ctrl-sec" id="timelimit-controls-sec">
+                <div class="toggle-row">
+                    <span class="toggle-lbl">Time limits</span>
+                    <label class="sw">
+                        <input type="checkbox" id="tl-toggle">
+                        <span class="sw-track"></span>
+                    </label>
+                </div>
+                <div class="tl-input" id="tl-wrap" style="display:none;">
+                    <label class="field-lbl" for="tl-val">Minutes per speaker</label>
+                    <input type="number" class="field" id="tl-val" value="5" min="1" max="99">
+                </div>
+            </div>
+
+            <div class="ctrl-sec" id="live-controls-sec">
+                <div class="action-stack">
+                    <button class="act-btn act-primary" id="btn-start">
+                        <i class="fas fa-play"></i> Start debate
+                    </button>
+                    <button class="act-btn act-ghost" id="btn-reset">
+                        <i class="fas fa-rotate-left"></i> Reset
+                    </button>
+                    <button class="act-btn act-danger" id="btn-end">
+                        <i class="fas fa-stop"></i> End debate
+                    </button>
+                </div>
+            </div>
+
+        </aside>
+    </main>
+
+    <footer class="app-footer">
+        <span>DebateClock</span>
+        <span>2025</span>
+    </footer>
+</div>
+
+<!-- Analysis progress overlay -->
+<div class="prog-overlay" id="prog-overlay">
+    <div class="prog-card">
+        <div class="prog-title">Analyzing recording</div>
+        <div class="prog-steps">
+            <div class="prog-step" id="pstep-upload">
+                <div class="step-icon"><i class="fas fa-arrow-up"></i></div>
+                <span>Uploading file</span>
+            </div>
+            <div class="prog-step" id="pstep-queue">
+                <div class="step-icon"><i class="fas fa-hourglass"></i></div>
+                <span>Queued for processing</span>
+            </div>
+            <div class="prog-step" id="pstep-process">
+                <div class="step-icon"><i class="fas fa-gear"></i></div>
+                <span>Speaker diarization</span>
+            </div>
+            <div class="prog-step" id="pstep-done">
+                <div class="step-icon"><i class="fas fa-check"></i></div>
+                <span>Complete</span>
+            </div>
+        </div>
+        <div class="prog-bar-wrap"><div class="prog-bar-fill" id="prog-bar"></div></div>
+        <div class="prog-detail" id="prog-detail">Starting…</div>
+    </div>
+</div>
+
+<!-- Speaker mapping modal -->
+<div class="map-modal" id="map-modal">
+    <div class="map-box">
+        <div class="map-title">Map speakers to debaters</div>
+        <div class="map-sub">AssemblyAI detected these voices. Match each to a debater using the sample quotes.</div>
+        <div id="map-speakers"></div>
+        <div class="map-actions">
+            <button class="m-btn" id="btn-cancel-map">Cancel</button>
+            <button class="m-btn m-save" id="btn-apply-map">Apply results</button>
+        </div>
+    </div>
+</div>
+
+<!-- Timeout overlay -->
+<div class="overlay" id="timeout-overlay">
+    <div class="ov-card">
+        <div class="ov-icon"><i class="fas fa-hourglass-end"></i></div>
+        <div class="ov-title" id="timeout-name">Time out</div>
+        <div class="ov-body">This speaker has reached their allotted time. All clocks are paused.</div>
+        <button class="act-btn act-primary" id="btn-ack" style="width:100%;">Acknowledge</button>
+    </div>
+</div>
+
+<!-- Name edit modal -->
+<div class="modal-bg" id="name-modal">
+    <div class="modal-box">
+        <div class="modal-title">Edit name</div>
+        <label class="field-lbl" for="name-input">Name</label>
+        <input type="text" class="field" id="name-input" autocomplete="off">
+        <div class="modal-actions">
+            <button class="m-btn" id="btn-cancel-name">Cancel</button>
+            <button class="m-btn m-save" id="btn-save-name">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Interruption panel -->
+<div class="slide-panel" id="int-panel">
+    <div class="sp-head">
+        <div class="sp-title">Mark interruption</div>
+        <button class="sp-close" id="btn-close-int"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="sp-sub">Who interrupted the current speaker?</div>
+    <div class="int-opts" id="int-opts"></div>
+</div>
+
+<script>
+// ── Color config ──────────────────────────────────────────────────────────────
+// Each speaker slot: main color var, dim var, team label
+const COLORS = [
+    { main: 'var(--aff)', dim: 'var(--aff-dim)', team: 'Team Affirmative' },
+    { main: 'var(--neg)', dim: 'var(--neg-dim)', team: 'Team Negative' },
+    { main: 'var(--aff)', dim: 'var(--aff-dim)', team: 'Team Affirmative' },
+    { main: 'var(--neg)', dim: 'var(--neg-dim)', team: 'Team Negative' },
+    { main: 'var(--c3)',  dim: 'var(--c3-dim)',  team: 'Team Affirmative' },
+    { main: 'var(--neg)', dim: 'var(--neg-dim)', team: 'Team Negative' },
+];
+
+// ── Speaker data ──────────────────────────────────────────────────────────────
+const speakers = [
+    { id: 0, name: 'Speaker 1', ci: 0, elapsed: 0, timeLimit: 300, speaking: false, paused: false, interruptions: 0, received: 0, active: true },
+    { id: 1, name: 'Speaker 2', ci: 1, elapsed: 0, timeLimit: 300, speaking: false, paused: false, interruptions: 0, received: 0, active: true },
+    { id: 2, name: 'Speaker 3', ci: 2, elapsed: 0, timeLimit: 300, speaking: false, paused: false, interruptions: 0, received: 0, active: false },
+    { id: 3, name: 'Speaker 4', ci: 3, elapsed: 0, timeLimit: 300, speaking: false, paused: false, interruptions: 0, received: 0, active: false },
+    { id: 4, name: 'Speaker 5', ci: 4, elapsed: 0, timeLimit: 300, speaking: false, paused: false, interruptions: 0, received: 0, active: false },
+    { id: 5, name: 'Speaker 6', ci: 5, elapsed: 0, timeLimit: 300, speaking: false, paused: false, interruptions: 0, received: 0, active: false },
+];
+
+// ── App state ─────────────────────────────────────────────────────────────────
+const S = {
+    running: false,
+    manual: true,
+    mode: 'manual',
+    config: '1v1',
+    startTime: null,
+    totalTime: 0,
+    overlaps: 0,
+    activeOverlapSet: '',   // sorted comma-joined speaker ids currently overlapping
+    timeLimitsOn: false,
+    timeLimitSecs: 300,
+    editId: null,
+};
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function fmt(s) {
+    const abs = Math.abs(s);
+    const m = Math.floor(abs / 60);
+    const sec = abs % 60;
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+}
+
+function initials(name) {
+    const parts = name.trim().split(/\s+/);
+    return parts.length === 1
+        ? parts[0][0].toUpperCase()
+        : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function active() { return speakers.filter(s => s.active); }
+
+// ── Config ────────────────────────────────────────────────────────────────────
+function applyConfig(cfg) {
+    speakers.forEach(s => s.active = false);
+    switch (cfg) {
+        case '1v1': speakers[0].active = speakers[1].active = true; break;
+        case '2v2': speakers[0].active = speakers[1].active = speakers[2].active = speakers[3].active = true; break;
+        case '3v3': speakers.forEach(s => s.active = true); break;
+        case '1v3': speakers[0].active = speakers[1].active = speakers[2].active = speakers[3].active = true; break;
+    }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function renderAll() {
+    renderCards();
+    renderIntTable();
+    updateStats();
+    updatePills();
+}
+
+function renderCards() {
+    const grid = document.getElementById('speakers-grid');
+    grid.innerHTML = '';
+    active().forEach(sp => grid.appendChild(buildCard(sp)));
+
+    // Attach click: toggle speaker on card body (not buttons)
+    grid.querySelectorAll('.clock-card').forEach(card => {
+        card.addEventListener('click', e => {
+            if (e.target.closest('.card-actions') || e.target.closest('.edit-btn')) return;
+            toggleSpeaker(parseInt(card.dataset.id));
+        });
+    });
+}
+
+function buildCard(sp) {
+    const col = COLORS[sp.ci];
+    const tl = S.timeLimitSecs;
+    const pct = S.timeLimitsOn ? Math.min(100, (sp.elapsed / tl) * 100) : 0;
+    const left = tl - sp.elapsed;
+    const live = sp.speaking && !sp.paused;
+
+    let cardCls = 'clock-card';
+    if (!S.running) cardCls += ' card-off';
+    else if (live) cardCls += ' card-live';
+    else if (S.timeLimitsOn && left <= 10 && left >= 0) cardCls += ' card-crit';
+    else if (S.timeLimitsOn && left <= 60) cardCls += ' card-warn';
+
+    let digCls = 'timer-digits';
+    if (live) digCls += ' t-live';
+    else if (S.timeLimitsOn && left <= 10 && left >= 0) digCls += ' t-crit';
+    else if (S.timeLimitsOn && left <= 60) digCls += ' t-warn';
+
+    let fillColor = col.main;
+    if (S.timeLimitsOn && left <= 10) fillColor = 'var(--crit)';
+    else if (S.timeLimitsOn && left <= 60) fillColor = 'var(--warn)';
+
+    const d = document.createElement('div');
+    d.className = cardCls;
+    d.dataset.id = sp.id;
+
+    d.innerHTML = `
+        <div class="card-head">
+            <div class="sp-ident">
+                <div class="avatar" style="background:${col.dim};color:${col.main};">${initials(sp.name)}</div>
+                <div class="sp-meta">
+                    <div class="sp-name-row">
+                        <span class="sp-name">${sp.name}</span>
+                        <button class="edit-btn" title="Edit name" onclick="openNameModal(${sp.id},event)">
+                            <i class="fas fa-pencil"></i>
+                        </button>
+                    </div>
+                    <div class="team-tag">
+                        <span class="team-pip" style="background:${col.main};"></span>
+                        ${col.team}
+                    </div>
+                </div>
+            </div>
+            <div class="live-badge ${live ? 'badge-on' : ''}">
+                <span class="badge-pip"></span>
+                ${live ? 'LIVE' : 'IDLE'}
+            </div>
+        </div>
+
+        <div class="int-tags">
+            ${sp.interruptions > 0 ? `<span class="int-tag tag-out"><i class="fas fa-bolt"></i>&nbsp;${sp.interruptions} out</span>` : ''}
+            ${sp.received > 0     ? `<span class="int-tag tag-in"><i class="fas fa-exclamation"></i>&nbsp;${sp.received} in</span>` : ''}
+        </div>
+
+        <div class="timer-area">
+            <div class="${digCls}" id="dig-${sp.id}">${fmt(sp.elapsed)}</div>
+            ${S.timeLimitsOn ? `<div class="timer-sub" id="sub-${sp.id}">${left >= 0 ? fmt(left) + ' left' : 'OVERTIME'}</div>` : ''}
+        </div>
+
+        ${S.timeLimitsOn ? `
+        <div class="time-track">
+            <div class="time-fill" id="fill-${sp.id}" style="width:${pct}%;background-color:${fillColor};"></div>
+        </div>` : ''}
+
+        <div class="card-actions">
+            <button class="ca-btn ${live ? 'ca-live' : ''}" onclick="toggleSpeaker(${sp.id})">
+                <i class="fas fa-${live ? 'stop' : 'play'}"></i>
+                ${live ? 'Stop' : 'Start'}
+            </button>
+            <button class="ca-btn" onclick="togglePause(${sp.id})">
+                <i class="fas fa-${sp.paused ? 'play' : 'pause'}"></i>
+                ${sp.paused ? 'Resume' : 'Pause'}
+            </button>
+            ${S.timeLimitsOn ? `
+            <button class="ca-btn" onclick="addTime(${sp.id},30)">
+                <i class="fas fa-plus"></i> 30s
+            </button>` : ''}
+        </div>
+    `;
+    return d;
+}
+
+function patchCard(sp) {
+    const card = document.querySelector(`.clock-card[data-id="${sp.id}"]`);
+    if (!card) return;
+
+    const col = COLORS[sp.ci];
+    const tl = S.timeLimitSecs;
+    const left = tl - sp.elapsed;
+    const live = sp.speaking && !sp.paused;
+
+    // Card class
+    let cc = 'clock-card';
+    if (!S.running) cc += ' card-off';
+    else if (live) cc += ' card-live';
+    else if (S.timeLimitsOn && left <= 10 && left >= 0) cc += ' card-crit';
+    else if (S.timeLimitsOn && left <= 60) cc += ' card-warn';
+    card.className = cc;
+
+    // Digits
+    const dig = card.querySelector('.timer-digits');
+    if (dig) {
+        dig.textContent = fmt(sp.elapsed);
+        dig.className = 'timer-digits' + (live ? ' t-live' : S.timeLimitsOn && left <= 10 && left >= 0 ? ' t-crit' : S.timeLimitsOn && left <= 60 ? ' t-warn' : '');
+    }
+
+    // Sub-label
+    const sub = card.querySelector('.timer-sub');
+    if (sub && S.timeLimitsOn) {
+        sub.textContent = left >= 0 ? fmt(left) + ' left' : 'OVERTIME';
+    }
+
+    // Badge
+    const badge = card.querySelector('.live-badge');
+    if (badge) {
+        badge.className = 'live-badge' + (live ? ' badge-on' : '');
+        badge.innerHTML = `<span class="badge-pip"></span>${live ? 'LIVE' : 'IDLE'}`;
+    }
+
+    // Fill
+    const fill = card.querySelector('.time-fill');
+    if (fill && S.timeLimitsOn) {
+        const pct = Math.min(100, (sp.elapsed / tl) * 100);
+        fill.style.width = `${pct}%`;
+        fill.style.backgroundColor = left <= 10 ? 'var(--crit)' : left <= 60 ? 'var(--warn)' : col.main;
+    }
+
+    // Start/stop button label
+    const startBtn = card.querySelector('.card-actions .ca-btn:first-child');
+    if (startBtn) {
+        startBtn.className = 'ca-btn' + (live ? ' ca-live' : '');
+        startBtn.innerHTML = `<i class="fas fa-${live ? 'stop' : 'play'}"></i> ${live ? 'Stop' : 'Start'}`;
+    }
+
+    // Pause/resume button label
+    const pauseBtn = card.querySelector('.card-actions .ca-btn:nth-child(2)');
+    if (pauseBtn) {
+        pauseBtn.innerHTML = `<i class="fas fa-${sp.paused ? 'play' : 'pause'}"></i> ${sp.paused ? 'Resume' : 'Pause'}`;
+    }
+}
+
+function renderIntTable() {
+    const tbody = document.getElementById('int-tbody');
+    tbody.innerHTML = '';
+    active().forEach(sp => {
+        const col = COLORS[sp.ci];
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <div class="td-name">
+                    <div class="td-av" style="background:${col.dim};color:${col.main};">${initials(sp.name)}</div>
+                    ${sp.name}
+                </div>
+            </td>
+            <td>${sp.interruptions}</td>
+            <td>${sp.received}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function updateStats() {
+    document.getElementById('stat-total').textContent = fmt(S.totalTime);
+    let aff = 0, neg = 0;
+    active().forEach(sp => {
+        if (COLORS[sp.ci].team === 'Team Affirmative') aff += sp.elapsed;
+        else neg += sp.elapsed;
+    });
+    const d = aff - neg;
+    document.getElementById('stat-lead').textContent = (d >= 0 ? '+' : '-') + fmt(Math.abs(d));
+    document.getElementById('stat-overlaps').textContent = S.overlaps;
+}
+
+function updatePills() {
+    document.getElementById('pill-config').textContent = S.config.toUpperCase();
+    const modeLabel = S.mode === 'rec' ? 'RECORDING' : S.manual ? 'MANUAL' : 'AUTO';
+    document.getElementById('pill-mode').textContent = modeLabel;
+    const dot = document.getElementById('pill-dot');
+    const lbl = document.getElementById('pill-status');
+    if (S.running) { dot.classList.add('live'); lbl.textContent = 'LIVE'; }
+    else           { dot.classList.remove('live'); lbl.textContent = 'READY'; }
+}
+
+function setRecFile(f) {
+    recFile = f;
+    document.getElementById('fc-name').textContent = f.name;
+    document.getElementById('file-chosen-row').style.display = 'block';
+    document.getElementById('file-drop').style.display = 'none';
+    document.getElementById('btn-analyze').disabled = false;
+}
+
+// ── Speaker control ───────────────────────────────────────────────────────────
+function toggleSpeaker(id) {
+    if (!S.running) return;
+    const sp = speakers.find(s => s.id === id && s.active);
+    if (!sp || sp.paused) return;
+
+    const wasOn = sp.speaking;
+
+    // Chess-clock: stop everyone else first
+    active().forEach(s => {
+        if (s.id !== id && s.speaking) {
+            s.speaking = false;
+            patchCard(s);
+        }
+    });
+
+    sp.speaking = !wasOn;
+    sp.paused = false;
+
+    checkOverlaps();
+    patchCard(sp);
+    updateStats();
+}
+
+function togglePause(id) {
+    if (!S.running) return;
+    const sp = speakers.find(s => s.id === id && s.active);
+    if (!sp) return;
+    sp.paused = !sp.paused;
+    patchCard(sp);
+    checkOverlaps();
+}
+
+function addTime(id, secs) {
+    const sp = speakers.find(s => s.id === id && s.active);
+    if (sp) { sp.timeLimit += secs; patchCard(sp); }
+}
+
+function checkOverlaps() {
+    const liveSpeakers = active().filter(s => s.speaking && !s.paused);
+    const newSet = liveSpeakers.map(s => s.id).sort().join(',');
+
+    // Only count as a new overlap when 2+ speaking and the set changed
+    if (liveSpeakers.length > 1 && newSet !== S.activeOverlapSet) {
+        S.overlaps++;
+        liveSpeakers.forEach(s => s.interruptions++);
+        updateStats();
+    }
+
+    S.activeOverlapSet = newSet;
+}
+
+// ── Interruption panel ────────────────────────────────────────────────────────
+function showIntPanel() {
+    const current = active().find(s => s.speaking && !s.paused);
+    const others = active().filter(s => !(s.speaking && !s.paused));
+
+    if (others.length === 0) {
+        alert('No other speakers available to select.');
+        return;
+    }
+
+    const opts = document.getElementById('int-opts');
+    opts.innerHTML = '';
+
+    others.forEach(sp => {
+        const col = COLORS[sp.ci];
+        const btn = document.createElement('div');
+        btn.className = 'int-opt';
+        btn.innerHTML = `
+            <div class="td-av" style="background:${col.dim};color:${col.main};width:30px;height:30px;border-radius:7px;">${initials(sp.name)}</div>
+            <div>
+                <div class="int-opt-name">${sp.name}</div>
+                <div class="int-opt-team">${col.team}</div>
+            </div>
+        `;
+        btn.addEventListener('click', () => {
+            sp.interruptions++;
+            if (current) current.received++;
+            S.overlaps++;
+            renderIntTable();
+            renderCards();
+            updateStats();
+            closeIntPanel();
+        });
+        opts.appendChild(btn);
+    });
+
+    document.getElementById('int-panel').classList.add('sp-show');
+}
+
+function closeIntPanel() {
+    document.getElementById('int-panel').classList.remove('sp-show');
+}
+
+// ── Name modal ────────────────────────────────────────────────────────────────
+function openNameModal(id, e) {
+    e.stopPropagation();
+    const sp = speakers.find(s => s.id === id);
+    if (!sp) return;
+    S.editId = id;
+    document.getElementById('name-input').value = sp.name;
+    document.getElementById('name-modal').classList.add('m-show');
+    setTimeout(() => document.getElementById('name-input').focus(), 40);
+}
+
+function closeNameModal() {
+    document.getElementById('name-modal').classList.remove('m-show');
+    S.editId = null;
+}
+
+function saveName() {
+    const val = document.getElementById('name-input').value.trim();
+    if (val && S.editId !== null) {
+        const sp = speakers.find(s => s.id === S.editId);
+        if (sp) sp.name = val;
+        renderAll();
+    }
+    closeNameModal();
+}
+
+// ── Timeout ───────────────────────────────────────────────────────────────────
+function showTimeout(sp) {
+    document.getElementById('timeout-name').textContent = `Time out: ${sp.name}`;
+    document.getElementById('timeout-overlay').classList.add('ov-show');
+    active().forEach(s => { s.paused = true; patchCard(s); });
+}
+
+// ── Tick ──────────────────────────────────────────────────────────────────────
+function tick() {
+    if (!S.running) return;
+    S.totalTime = Math.floor((Date.now() - S.startTime) / 1000);
+
+    active().forEach(sp => {
+        if (sp.speaking && !sp.paused) {
+            sp.elapsed++;
+            if (S.timeLimitsOn && sp.elapsed === S.timeLimitSecs) {
+                showTimeout(sp);
+            }
+            patchCard(sp);
+        }
+    });
+
+    updateStats();
+}
+
+// ── Debate lifecycle ──────────────────────────────────────────────────────────
+function startDebate() {
+    if (S.running) return;
+
+    S.timeLimitSecs = (parseInt(document.getElementById('tl-val').value, 10) || 5) * 60;
+
+    active().forEach(sp => {
+        sp.elapsed = 0;
+        sp.speaking = false;
+        sp.paused = false;
+        sp.interruptions = 0;
+        sp.received = 0;
+        sp.timeLimit = S.timeLimitSecs;
+    });
+
+    S.running = true;
+    S.startTime = Date.now();
+    S.totalTime = 0;
+    S.overlaps = 0;
+    S.activeOverlapSet = '';
+
+    document.getElementById('btn-start').disabled = true;
+    document.getElementById('btn-start').innerHTML = '<i class="fas fa-circle-dot"></i> Running';
+
+    if (S.mode === 'auto') initRealtimeStream();
+
+    renderAll();
+}
+
+function endDebate() {
+    if (!S.running) return;
+    S.running = false;
+
+    active().forEach(sp => { sp.speaking = false; sp.paused = false; });
+
+    if (S.mode === 'auto') stopRealtimeStream();
+
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-start').innerHTML = '<i class="fas fa-play"></i> Start debate';
+
+    renderAll();
+}
+
+function resetDebate() {
+    if (S.running) endDebate();
+
+    active().forEach(sp => {
+        sp.elapsed = 0;
+        sp.speaking = false;
+        sp.paused = false;
+        sp.interruptions = 0;
+        sp.received = 0;
+    });
+
+    S.totalTime = 0;
+    S.overlaps = 0;
+    S.activeOverlapSet = '';
+    renderAll();
+}
+
+// ── AssemblyAI real-time streaming (auto mode) ────────────────────────────────
+const RT = {
+    ws: null,
+    audioCtx: null,
+    processor: null,
+    source: null,
+    stream: null,
+    speakerMap: {},   // aai label ('A','B'…) → speaker id
+    labelOrder: [],   // labels in first-seen order
+    lastLabel: null,
+};
+
+async function initRealtimeStream() {
+    const apiKey = document.getElementById('aai-key').value.trim();
+    if (!apiKey) {
+        alert('Enter your AssemblyAI API key in the Recording tab first, then switch back to Auto.');
+        switchMode('manual');
+        return;
+    }
+
+    setAutoStatus('CONNECTING');
+
+    try {
+        // 1. Exchange API key for a short-lived token (avoids exposing key in WS URL)
+        const tokenRes = await fetch('https://api.assemblyai.com/v2/realtime/token', {
+            method: 'POST',
+            headers: { Authorization: apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ expires_in: 3600 }),
+        });
+        if (!tokenRes.ok) {
+            const e = await tokenRes.json().catch(() => ({}));
+            throw new Error(e.error || `Token request failed (${tokenRes.status}). Check your API key.`);
+        }
+        const { token } = await tokenRes.json();
+
+        // 2. Open WebSocket with speaker diarization enabled
+        const spCount = active().length;
+        RT.ws = new WebSocket(
+            `wss://api.assemblyai.com/v2/realtime/ws` +
+            `?sample_rate=16000&speaker_labels=true&speakers_expected=${spCount}&token=${token}`
+        );
+
+        RT.ws.onopen = () => {
+            setAutoStatus('LISTENING');
+            setAutoDot('live');
+        };
+
+        RT.ws.onerror = () => setAutoStatus('WS ERROR');
+
+        RT.ws.onclose = () => {
+            setAutoDot('');
+            // Auto-reconnect if debate is still running
+            if (S.running && S.mode === 'auto') {
+                setAutoStatus('RECONNECTING');
+                setTimeout(initRealtimeStream, 2000);
+            } else {
+                setAutoStatus('READY');
+            }
+        };
+
+        RT.ws.onmessage = e => {
+            const msg = JSON.parse(e.data);
+            if (msg.error) { console.warn('AAI RT:', msg.error); return; }
+            if (msg.message_type === 'FinalTranscript') handleFinalTranscript(msg);
+        };
+
+        // 3. Capture mic at 16 kHz (browser resamples automatically)
+        RT.stream   = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1 }, video: false });
+        RT.audioCtx = new AudioContext({ sampleRate: 16000 });
+        RT.source   = RT.audioCtx.createMediaStreamSource(RT.stream);
+        RT.processor = RT.audioCtx.createScriptProcessor(4096, 1, 1);
+
+        RT.processor.onaudioprocess = ev => {
+            if (!RT.ws || RT.ws.readyState !== WebSocket.OPEN) return;
+            const f32 = ev.inputBuffer.getChannelData(0);
+            // Convert float32 → int16 PCM
+            const i16 = new Int16Array(f32.length);
+            for (let i = 0; i < f32.length; i++) {
+                i16[i] = Math.max(-32768, Math.min(32767, Math.round(f32[i] * 32767)));
+            }
+            // Base64-encode and send
+            const bytes = new Uint8Array(i16.buffer);
+            let bin = '';
+            for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+            RT.ws.send(JSON.stringify({ audio_data: btoa(bin) }));
+        };
+
+        RT.source.connect(RT.processor);
+        RT.processor.connect(RT.audioCtx.destination);
+
+    } catch(err) {
+        stopRealtimeStream();
+        alert(`Real-time stream failed: ${err.message}`);
+        switchMode('manual');
+    }
+}
+
+function handleFinalTranscript(msg) {
+    if (!msg.words || msg.words.length === 0) return;
+
+    // Find the dominant speaker label in this transcript chunk
+    const counts = {};
+    msg.words.forEach(w => { if (w.speaker) counts[w.speaker] = (counts[w.speaker] || 0) + 1; });
+    const entries = Object.entries(counts);
+    if (entries.length === 0) return;
+    const label = entries.sort((a, b) => b[1] - a[1])[0][0];
+
+    // Auto-assign new labels to the next unassigned active speaker
+    if (!(label in RT.speakerMap)) {
+        const usedIds = new Set(Object.values(RT.speakerMap));
+        const next    = active().find(sp => !usedIds.has(sp.id));
+        RT.speakerMap[label] = next ? next.id : active()[0]?.id;
+        RT.labelOrder.push(label);
+        renderVoiceMap();
+    }
+
+    // Switch the active clock when the speaker changes
+    if (label !== RT.lastLabel) {
+        RT.lastLabel = label;
+        const spId = RT.speakerMap[label];
+        if (spId != null && S.running) toggleSpeaker(spId);
+    }
+}
+
+function stopRealtimeStream() {
+    if (RT.ws)        { try { RT.ws.close();          } catch(e) {} RT.ws        = null; }
+    if (RT.processor) { try { RT.processor.disconnect(); } catch(e) {} RT.processor = null; }
+    if (RT.source)    { try { RT.source.disconnect();    } catch(e) {} RT.source    = null; }
+    if (RT.audioCtx)  { try { RT.audioCtx.close();       } catch(e) {} RT.audioCtx  = null; }
+    if (RT.stream)    { RT.stream.getTracks().forEach(t => t.stop()); RT.stream = null; }
+    RT.speakerMap = {}; RT.labelOrder = []; RT.lastLabel = null;
+    setAutoStatus('READY'); setAutoDot(''); renderVoiceMap();
+}
+
+function setAutoStatus(msg) {
+    const el = document.getElementById('auto-status');
+    if (el) el.textContent = msg;
+}
+
+function setAutoDot(state) {
+    const el = document.getElementById('auto-status-dot');
+    if (el) el.className = 'pill-dot' + (state === 'live' ? ' live' : '');
+}
+
+function renderVoiceMap() {
+    const container = document.getElementById('voice-map');
+    if (!container) return;
+    if (RT.labelOrder.length === 0) {
+        container.innerHTML = '<div class="mode-hint">Voices will be mapped automatically as speakers are detected.</div>';
+        return;
+    }
+    container.innerHTML = '';
+    RT.labelOrder.forEach(label => {
+        const sp  = speakers.find(s => s.id === RT.speakerMap[label]);
+        const row = document.createElement('div');
+        row.className = 'voice-map-row';
+        row.innerHTML = `
+            <span class="vm-label">Voice ${label}</span>
+            <i class="fas fa-arrow-right" style="color:var(--text-3);font-size:0.5625rem;flex-shrink:0;"></i>
+            <span class="vm-name">${sp ? sp.name : '—'}</span>
+            <button class="vm-swap" onclick="swapVoice('${label}')">swap</button>
+        `;
+        container.appendChild(row);
+    });
+}
+
+function swapVoice(label) {
+    const currentId  = RT.speakerMap[label];
+    const activeSps  = active();
+    const currentIdx = activeSps.findIndex(s => s.id === currentId);
+    RT.speakerMap[label] = activeSps[(currentIdx + 1) % activeSps.length].id;
+    renderVoiceMap();
+}
+
+// ── Mode ──────────────────────────────────────────────────────────────────────
+// mode: 'manual' | 'auto' | 'rec'
+function switchMode(mode) {
+    S.manual = (mode === 'manual');
+    S.mode   = mode;
+    document.getElementById('seg-auto').classList.toggle('seg-on',   mode === 'auto');
+    document.getElementById('seg-manual').classList.toggle('seg-on', mode === 'manual');
+    document.getElementById('seg-rec').classList.toggle('seg-on',    mode === 'rec');
+    document.getElementById('auto-pane').style.display   = mode === 'auto'   ? 'block' : 'none';
+    document.getElementById('manual-pane').style.display = mode === 'manual' ? 'block' : 'none';
+    document.getElementById('rec-pane').style.display    = mode === 'rec'    ? 'block' : 'none';
+    // Hide live-debate-only controls in recording mode
+    document.getElementById('live-controls-sec').style.display   = mode === 'rec' ? 'none' : '';
+    document.getElementById('timelimit-controls-sec').style.display = mode === 'rec' ? 'none' : '';
+    updatePills();
+    if (mode === 'auto' && S.running) initRealtimeStream();
+}
+
+// ── AssemblyAI recording analysis ─────────────────────────────────────────────
+const AAI = 'https://api.assemblyai.com/v2';
+let recFile     = null;
+let mappingData = null;
+
+function setProgStep(id, state) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('step-active', 'step-done');
+    if (state === 'active') el.classList.add('step-active');
+    if (state === 'done')   el.classList.add('step-done');
+}
+function setProgBar(pct) { document.getElementById('prog-bar').style.width = `${pct}%`; }
+function setProgDetail(msg) { document.getElementById('prog-detail').textContent = msg; }
+function showProg(show) { document.getElementById('prog-overlay').classList.toggle('prog-show', show); }
+
+async function analyzeRecording() {
+    const apiKey = document.getElementById('aai-key').value.trim();
+    if (!apiKey) { alert('Enter your AssemblyAI API key first.'); return; }
+    if (!recFile) { alert('Select a file first.'); return; }
+    try { localStorage.setItem('aai_key', apiKey); } catch(e) {}
+
+    ['pstep-upload','pstep-queue','pstep-process','pstep-done'].forEach(id => setProgStep(id, ''));
+    setProgBar(0);
+    setProgDetail('Preparing…');
+    showProg(true);
+
+    try {
+        // 1. Upload file
+        setProgStep('pstep-upload', 'active');
+        setProgDetail(`Uploading ${(recFile.size / 1048576).toFixed(1)} MB…`);
+
+        const uploadRes = await fetch(`${AAI}/upload`, {
+            method: 'POST',
+            headers: { Authorization: apiKey },
+            body: recFile,
+        });
+        if (!uploadRes.ok) {
+            const e = await uploadRes.json().catch(() => ({}));
+            throw new Error(e.error || `Upload failed (${uploadRes.status}). Check your API key.`);
+        }
+        const { upload_url } = await uploadRes.json();
+        setProgStep('pstep-upload', 'done');
+        setProgBar(25);
+
+        // 2. Request transcript with speaker diarization
+        setProgStep('pstep-queue', 'active');
+        setProgDetail('Requesting speaker diarization…');
+
+        const spCount = parseInt(document.getElementById('sp-expected').value, 10) || 0;
+        const txBody  = { audio_url: upload_url, speaker_labels: true };
+        if (spCount >= 2) txBody.speakers_expected = spCount;
+
+        const txRes = await fetch(`${AAI}/transcript`, {
+            method: 'POST',
+            headers: { Authorization: apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify(txBody),
+        });
+        if (!txRes.ok) {
+            const e = await txRes.json().catch(() => ({}));
+            throw new Error(e.error || `Request failed (${txRes.status}).`);
+        }
+        const { id } = await txRes.json();
+        setProgStep('pstep-queue', 'done');
+        setProgBar(40);
+
+        // 3. Poll
+        setProgStep('pstep-process', 'active');
+        setProgDetail('Processing… (15–60 s depending on length)');
+
+        const result = await pollTranscript(id, apiKey);
+
+        setProgStep('pstep-process', 'done');
+        setProgStep('pstep-done',    'done');
+        setProgBar(100);
+        setProgDetail('Done.');
+        await new Promise(r => setTimeout(r, 400));
+        showProg(false);
+
+        if (!result.utterances || result.utterances.length === 0) {
+            alert('No speech detected. Make sure the file has audible speech.');
+            return;
+        }
+
+        openMappingModal(result.utterances);
+
+    } catch(err) {
+        showProg(false);
+        alert(`Analysis failed: ${err.message}`);
+        console.error(err);
+    }
+}
+
+async function pollTranscript(id, apiKey) {
+    let elapsed = 0;
+    while (true) {
+        await new Promise(r => setTimeout(r, 3500));
+        elapsed += 3.5;
+        const res  = await fetch(`${AAI}/transcript/${id}`, { headers: { Authorization: apiKey } });
+        const data = await res.json();
+        if (data.status === 'completed') return data;
+        if (data.status === 'error') throw new Error(data.error || 'Transcription error.');
+        setProgBar(Math.min(90, 40 + elapsed * 1.2));
+        setProgDetail(`Processing… (${Math.round(elapsed)}s elapsed)`);
+    }
+}
+
+// ── Speaker mapping modal ────────────────────────────────────────────────────
+function openMappingModal(utterances) {
+    const labelSet = [...new Set(utterances.map(u => u.speaker))].sort();
+    const info     = {};
+    labelSet.forEach(lbl => {
+        const utts   = utterances.filter(u => u.speaker === lbl);
+        const totalMs = utts.reduce((s, u) => s + (u.end - u.start), 0);
+        info[lbl] = { totalMs, quotes: utts.slice(0, 3).map(u => u.text).filter(Boolean), count: utts.length };
+    });
+    mappingData = { labelSet, info, utterances };
+
+    const activeSps = active();
+    const container = document.getElementById('map-speakers');
+    container.innerHTML = '';
+
+    labelSet.forEach((lbl, i) => {
+        const d = document.createElement('div');
+        d.className = 'map-speaker';
+        const totalSec = Math.round(info[lbl].totalMs / 1000);
+        const opts = activeSps.map((sp, j) =>
+            `<option value="${sp.id}"${j === i ? ' selected' : ''}>${sp.name}</option>`
+        ).join('') + `<option value="-1">— Ignore —</option>`;
+
+        d.innerHTML = `
+            <div class="map-sp-head">
+                <span class="map-sp-id">Speaker ${lbl}</span>
+                <select class="map-select" data-label="${lbl}">${opts}</select>
+            </div>
+            <div class="map-quotes">${info[lbl].quotes.map(q =>
+                `<div class="map-quote">${q.length > 110 ? q.slice(0,107)+'…' : q}</div>`
+            ).join('')}</div>
+            <div class="map-stats-row">
+                <div class="map-stat">Total:&nbsp;<span class="map-stat-val">${fmt(totalSec)}</span></div>
+                <div class="map-stat">Segments:&nbsp;<span class="map-stat-val">${info[lbl].count}</span></div>
+            </div>`;
+        container.appendChild(d);
+    });
+
+    document.getElementById('map-modal').classList.add('map-show');
+}
+
+function closeMappingModal() { document.getElementById('map-modal').classList.remove('map-show'); }
+
+function applyMapping() {
+    if (!mappingData) return;
+    const { labelSet, utterances } = mappingData;
+
+    // Read dropdown selections: label → speaker id (-1 = ignore)
+    const mapping = {};
+    labelSet.forEach(lbl => {
+        const sel = document.querySelector(`.map-select[data-label="${lbl}"]`);
+        if (sel) mapping[lbl] = parseInt(sel.value, 10);
+    });
+
+    // Reset all active speakers
+    active().forEach(sp => {
+        sp.elapsed = 0; sp.interruptions = 0; sp.received = 0;
+        sp.speaking = false; sp.paused = false;
+    });
+
+    // Sum speaking time per debater
+    utterances.forEach(utt => {
+        const spId = mapping[utt.speaker];
+        if (spId == null || spId === -1) return;
+        const sp = speakers.find(s => s.id === spId && s.active);
+        if (sp) sp.elapsed += Math.round((utt.end - utt.start) / 1000);
+    });
+
+    // Total debate time = span of all utterances
+    const minStart  = Math.min(...utterances.map(u => u.start));
+    const maxEnd    = Math.max(...utterances.map(u => u.end));
+    S.totalTime = Math.round((maxEnd - minStart) / 1000);
+    S.overlaps  = 0;
+    S.running   = false;
+
+    // Detect rapid turn-taking (< 800 ms gap) as interruptions
+    for (let i = 1; i < utterances.length; i++) {
+        const prev = utterances[i - 1];
+        const curr = utterances[i];
+        if (curr.start - prev.end < 800 && prev.speaker !== curr.speaker) {
+            const by = speakers.find(s => s.id === mapping[curr.speaker] && s.active);
+            const on = speakers.find(s => s.id === mapping[prev.speaker] && s.active);
+            if (by && on && by !== on) { by.interruptions++; on.received++; S.overlaps++; }
+        }
+    }
+
+    closeMappingModal();
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-start').innerHTML = '<i class="fas fa-play"></i> Start debate';
+    renderAll();
+    buildTimeline(utterances, mapping);
+}
+
+// ── Speaking timeline ────────────────────────────────────────────────────────
+function buildTimeline(utterances, mapping) {
+    if (!utterances.length) return;
+    const totalMs = Math.max(...utterances.map(u => u.end));
+    const tracks  = document.getElementById('timeline-tracks');
+    const axis    = document.getElementById('tl-axis');
+    tracks.innerHTML = '';
+
+    // Group by configured speaker id
+    const byId = {};
+    utterances.forEach(u => {
+        const id = mapping[u.speaker];
+        if (id == null || id === -1) return;
+        (byId[id] = byId[id] || []).push(u);
+    });
+
+    active().forEach(sp => {
+        if (!byId[sp.id]) return;
+        const col   = COLORS[sp.ci];
+        const track = document.createElement('div');
+        track.className = 'tl-track';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'tl-name';
+        nameEl.title     = sp.name;
+        nameEl.textContent = sp.name;
+
+        const barRow = document.createElement('div');
+        barRow.className = 'tl-bar-row';
+
+        byId[sp.id].forEach(utt => {
+            const seg = document.createElement('div');
+            seg.className        = 'tl-segment';
+            seg.style.left       = `${(utt.start / totalMs) * 100}%`;
+            seg.style.width      = `${Math.max(0.4, (utt.end - utt.start) / totalMs * 100)}%`;
+            seg.style.background = col.main;
+            seg.title            = utt.text || '';
+            barRow.appendChild(seg);
+        });
+
+        track.appendChild(nameEl);
+        track.appendChild(barRow);
+        tracks.appendChild(track);
+    });
+
+    // Axis ticks
+    axis.innerHTML = '';
+    [0, 0.25, 0.5, 0.75, 1].forEach(f => {
+        const lbl = document.createElement('span');
+        lbl.textContent = fmt(Math.round(totalMs / 1000 * f));
+        axis.appendChild(lbl);
+    });
+
+    document.getElementById('timeline-section').style.display = 'block';
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+function init() {
+    applyConfig(S.config);
+    renderAll();
+
+    // Team config
+    document.querySelectorAll('.team-opt').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (S.running) return;
+            document.querySelectorAll('.team-opt').forEach(b => b.classList.remove('t-on'));
+            btn.classList.add('t-on');
+            S.config = btn.dataset.cfg;
+            applyConfig(S.config);
+            resetDebate();
+        });
+    });
+
+    // Mode
+    document.getElementById('seg-auto').addEventListener('click',   () => switchMode('auto'));
+    document.getElementById('seg-manual').addEventListener('click', () => switchMode('manual'));
+    document.getElementById('seg-rec').addEventListener('click',    () => switchMode('rec'));
+
+    // Load cached API key
+    try {
+        const cached = localStorage.getItem('aai_key');
+        if (cached) document.getElementById('aai-key').value = cached;
+    } catch(e) {}
+
+    // File drop zone
+    const dropZone  = document.getElementById('file-drop');
+    const fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        const f = e.dataTransfer.files[0];
+        if (f) setRecFile(f);
+    });
+
+    fileInput.addEventListener('change', () => {
+        if (fileInput.files[0]) setRecFile(fileInput.files[0]);
+    });
+
+    document.getElementById('btn-clear-file').addEventListener('click', e => {
+        e.stopPropagation();
+        recFile = null;
+        fileInput.value = '';
+        document.getElementById('file-chosen-row').style.display = 'none';
+        dropZone.style.display = 'block';
+        document.getElementById('btn-analyze').disabled = true;
+    });
+
+    // Analyze button
+    document.getElementById('btn-analyze').addEventListener('click', analyzeRecording);
+
+    // Mapping modal
+    document.getElementById('btn-cancel-map').addEventListener('click', closeMappingModal);
+    document.getElementById('btn-apply-map').addEventListener('click', applyMapping);
+
+    // Time limit toggle
+    document.getElementById('tl-toggle').addEventListener('change', function() {
+        S.timeLimitsOn = this.checked;
+        document.getElementById('tl-wrap').style.display = this.checked ? 'block' : 'none';
+        renderCards(); // rebuild cards to show/hide progress + sub-label
+    });
+
+    // Actions
+    document.getElementById('btn-start').addEventListener('click', startDebate);
+    document.getElementById('btn-end').addEventListener('click', endDebate);
+    document.getElementById('btn-reset').addEventListener('click', () => {
+        if (!confirm('Reset all timers?')) return;
+        resetDebate();
+    });
+
+    // Manual controls
+    document.getElementById('btn-pause-all').addEventListener('click', () => {
+        active().forEach(sp => {
+            if (sp.speaking && !sp.paused) { sp.paused = true; patchCard(sp); }
+        });
+    });
+
+    document.getElementById('btn-mark-int').addEventListener('click', showIntPanel);
+    document.getElementById('btn-close-int').addEventListener('click', closeIntPanel);
+
+    // Timeout ack
+    document.getElementById('btn-ack').addEventListener('click', () => {
+        document.getElementById('timeout-overlay').classList.remove('ov-show');
+    });
+
+    // Name modal
+    document.getElementById('btn-cancel-name').addEventListener('click', closeNameModal);
+    document.getElementById('btn-save-name').addEventListener('click', saveName);
+    document.getElementById('name-input').addEventListener('keydown', e => {
+        if (e.key === 'Enter') saveName();
+        if (e.key === 'Escape') closeNameModal();
+    });
+    document.getElementById('name-modal').addEventListener('click', e => {
+        if (e.target === e.currentTarget) closeNameModal();
+    });
+
+    setInterval(tick, 1000);
+}
+
+// Expose for inline onclick handlers
+window.toggleSpeaker = toggleSpeaker;
+window.togglePause   = togglePause;
+window.addTime       = addTime;
+window.openNameModal = openNameModal;
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
